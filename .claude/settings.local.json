@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python tests/test_simulator.py)"
+    ]
+  }
+}
