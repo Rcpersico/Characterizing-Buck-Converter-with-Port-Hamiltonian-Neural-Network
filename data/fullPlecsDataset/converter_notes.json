@@ -1,0 +1,322 @@
+{
+  "buckdata1": {
+    "description": "Baseline 12 V\u21925 V, medium L/C",
+    "params": {
+      "L_uH": 100.0,
+      "C_uF": 220.0,
+      "ESR_L_ohm": 0.1,
+      "ESR_C_ohm": 0.05,
+      "switching_frequency_kHz": 100.0
+    },
+    "operating_conditions": {
+      "Vin_range_V": [
+        10.0,
+        14.0
+      ],
+      "alpha_range": [
+        0.2,
+        0.8
+      ],
+      "Rload_range_ohm": [
+        2.0,
+        6.0
+      ],
+      "dt_us": 50.0,
+      "n_load_steps": 2,
+      "segment_duration_range_ms": [
+        10.0,
+        15.0
+      ],
+      "noise_sigma_iL_A": 0.02,
+      "noise_sigma_VC_V": 0.05
+    }
+  },
+  "buckdata2": {
+    "description": "High-frequency 24 V input, small L",
+    "params": {
+      "L_uH": 50.0,
+      "C_uF": 100.0,
+      "ESR_L_ohm": 0.08,
+      "ESR_C_ohm": 0.03,
+      "switching_frequency_kHz": 200.0
+    },
+    "operating_conditions": {
+      "Vin_range_V": [
+        20.0,
+        28.0
+      ],
+      "alpha_range": [
+        0.2,
+        0.7
+      ],
+      "Rload_range_ohm": [
+        3.0,
+        8.0
+      ],
+      "dt_us": 25.0,
+      "n_load_steps": 2,
+      "segment_duration_range_ms": [
+        5.0,
+        10.0
+      ],
+      "noise_sigma_iL_A": 0.02,
+      "noise_sigma_VC_V": 0.05
+    }
+  },
+  "buckdata3": {
+    "description": "Low-frequency, large inductance, heavy load",
+    "params": {
+      "L_uH": 500.0,
+      "C_uF": 470.0,
+      "ESR_L_ohm": 0.3,
+      "ESR_C_ohm": 0.08,
+      "switching_frequency_kHz": 50.0
+    },
+    "operating_conditions": {
+      "Vin_range_V": [
+        10.0,
+        14.0
+      ],
+      "alpha_range": [
+        0.3,
+        0.7
+      ],
+      "Rload_range_ohm": [
+        1.0,
+        4.0
+      ],
+      "dt_us": 100.0,
+      "n_load_steps": 2,
+      "segment_duration_range_ms": [
+        20.0,
+        30.0
+      ],
+      "noise_sigma_iL_A": 0.03,
+      "noise_sigma_VC_V": 0.05
+    }
+  },
+  "buckdata4": {
+    "description": "High-voltage input 48 V, medium freq",
+    "params": {
+      "L_uH": 200.0,
+      "C_uF": 150.0,
+      "ESR_L_ohm": 0.2,
+      "ESR_C_ohm": 0.05,
+      "switching_frequency_kHz": 100.0
+    },
+    "operating_conditions": {
+      "Vin_range_V": [
+        42.0,
+        54.0
+      ],
+      "alpha_range": [
+        0.1,
+        0.5
+      ],
+      "Rload_range_ohm": [
+        5.0,
+        15.0
+      ],
+      "dt_us": 50.0,
+      "n_load_steps": 2,
+      "segment_duration_range_ms": [
+        10.0,
+        15.0
+      ],
+      "noise_sigma_iL_A": 0.03,
+      "noise_sigma_VC_V": 0.08
+    }
+  },
+  "buckdata5": {
+    "description": "Low ESR, low noise design",
+    "params": {
+      "L_uH": 150.0,
+      "C_uF": 330.0,
+      "ESR_L_ohm": 0.05,
+      "ESR_C_ohm": 0.01,
+      "switching_frequency_kHz": 150.0
+    },
+    "operating_conditions": {
+      "Vin_range_V": [
+        10.0,
+        14.0
+      ],
+      "alpha_range": [
+        0.2,
+        0.8
+      ],
+      "Rload_range_ohm": [
+        2.0,
+        7.0
+      ],
+      "dt_us": 33.0,
+      "n_load_steps": 2,
+      "segment_duration_range_ms": [
+        10.0,
+        15.0
+      ],
+      "noise_sigma_iL_A": 0.01,
+      "noise_sigma_VC_V": 0.02
+    }
+  },
+  "buckdata6": {
+    "description": "High ESR, lossy components",
+    "params": {
+      "L_uH": 100.0,
+      "C_uF": 220.0,
+      "ESR_L_ohm": 0.5,
+      "ESR_C_ohm": 0.1,
+      "switching_frequency_kHz": 100.0
+    },
+    "operating_conditions": {
+      "Vin_range_V": [
+        10.0,
+        14.0
+      ],
+      "alpha_range": [
+        0.2,
+        0.8
+      ],
+      "Rload_range_ohm": [
+        2.0,
+        6.0
+      ],
+      "dt_us": 50.0,
+      "n_load_steps": 2,
+      "segment_duration_range_ms": [
+        10.0,
+        15.0
+      ],
+      "noise_sigma_iL_A": 0.03,
+      "noise_sigma_VC_V": 0.07
+    }
+  },
+  "buckdata7": {
+    "description": "Automotive 12 V input, tight duty cycle",
+    "params": {
+      "L_uH": 75.0,
+      "C_uF": 180.0,
+      "ESR_L_ohm": 0.12,
+      "ESR_C_ohm": 0.04,
+      "switching_frequency_kHz": 120.0
+    },
+    "operating_conditions": {
+      "Vin_range_V": [
+        10.5,
+        13.5
+      ],
+      "alpha_range": [
+        0.3,
+        0.6
+      ],
+      "Rload_range_ohm": [
+        1.5,
+        5.0
+      ],
+      "dt_us": 42.0,
+      "n_load_steps": 3,
+      "segment_duration_range_ms": [
+        8.0,
+        12.0
+      ],
+      "noise_sigma_iL_A": 0.02,
+      "noise_sigma_VC_V": 0.05
+    }
+  },
+  "buckdata8": {
+    "description": "Wide input range, three load steps",
+    "params": {
+      "L_uH": 250.0,
+      "C_uF": 100.0,
+      "ESR_L_ohm": 0.15,
+      "ESR_C_ohm": 0.06,
+      "switching_frequency_kHz": 80.0
+    },
+    "operating_conditions": {
+      "Vin_range_V": [
+        8.0,
+        16.0
+      ],
+      "alpha_range": [
+        0.2,
+        0.8
+      ],
+      "Rload_range_ohm": [
+        2.0,
+        10.0
+      ],
+      "dt_us": 63.0,
+      "n_load_steps": 3,
+      "segment_duration_range_ms": [
+        12.0,
+        20.0
+      ],
+      "noise_sigma_iL_A": 0.03,
+      "noise_sigma_VC_V": 0.06
+    }
+  },
+  "buckdata9": {
+    "description": "Telecom 48 V\u219212 V, low ripple",
+    "params": {
+      "L_uH": 400.0,
+      "C_uF": 390.0,
+      "ESR_L_ohm": 0.25,
+      "ESR_C_ohm": 0.07,
+      "switching_frequency_kHz": 75.0
+    },
+    "operating_conditions": {
+      "Vin_range_V": [
+        44.0,
+        52.0
+      ],
+      "alpha_range": [
+        0.15,
+        0.45
+      ],
+      "Rload_range_ohm": [
+        4.0,
+        12.0
+      ],
+      "dt_us": 67.0,
+      "n_load_steps": 2,
+      "segment_duration_range_ms": [
+        15.0,
+        25.0
+      ],
+      "noise_sigma_iL_A": 0.02,
+      "noise_sigma_VC_V": 0.05
+    }
+  },
+  "buckdata10": {
+    "description": "Very high frequency GaN-class design",
+    "params": {
+      "L_uH": 25.0,
+      "C_uF": 47.0,
+      "ESR_L_ohm": 0.05,
+      "ESR_C_ohm": 0.02,
+      "switching_frequency_kHz": 500.0
+    },
+    "operating_conditions": {
+      "Vin_range_V": [
+        10.0,
+        14.0
+      ],
+      "alpha_range": [
+        0.2,
+        0.8
+      ],
+      "Rload_range_ohm": [
+        2.0,
+        6.0
+      ],
+      "dt_us": 10.0,
+      "n_load_steps": 2,
+      "segment_duration_range_ms": [
+        4.0,
+        8.0
+      ],
+      "noise_sigma_iL_A": 0.01,
+      "noise_sigma_VC_V": 0.03
+    }
+  }
+}

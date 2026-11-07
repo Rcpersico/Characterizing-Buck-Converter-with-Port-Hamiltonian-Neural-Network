@@ -463,8 +463,149 @@ Do this in any future caller of `simulate_buck` that passes a non-trivial `dt`. 
 
 
 
+---
+
+## Step 7 — PLECS Full Dataset & SimulationBuckPHNN (Complete)
+
+See `src/train_simulation_buck.py` and `src/train_plecs_phnn.py`. The averaged PLECS pipeline (cycle-averaging at 50 µs via trapezoidal integration per switching cycle) is documented in prior entries. Key limitation: the averaged model is only as good as the averaged ODE, so it cannot represent switching ripple or accurate transient behaviour during the first 1–2 switching cycles after a step.
+
+---
+
+## Step 8 — Switched-Data PHNN (Direction 2)
+
+**Status:** Implementation complete. Training and evaluation require PLECS + GPU.
+
+### Goal
+
+Train a `SwitchedBuckPHNN` directly on raw 1 MHz PLECS switched waveforms — no cycle averaging. The hypothesis is that a PHNN trained on switched data will predict transient ripple and startup behaviour that the analytical averaged model structurally cannot represent.
+
+### Files
+
+All Direction 2 scripts live in `switchingBuckModeling/`:
+
+| File | Purpose |
+|------|---------|
+| `switchingBuckModeling/generate_plecs_switched_dataset.py` | PLECS dataset generator at 1 MHz, no averaging, saves `v_sw(t)` field |
+| `switchingBuckModeling/train_switched_buck.py` | Trains `SwitchedBuckPHNN` with 100-step rollout, mini-batching, grad clipping |
+| `switchingBuckModeling/evaluate_switched_vs_averaged.py` | 3-way comparison: PLECS vs. averaged ODE vs. SwitchedBuckPHNN on 1 ms transients |
+| `src/phnn.py` (class `SwitchedBuckPHNN`) | Model: fixed LC, learned state-dependent R_NN (Cholesky PSD), learned H_NN |
+
+### Architecture: SwitchedBuckPHNN
+
+```
+ẋ = (J - R(x)) ∇H(x) + G u
+
+H(x)  = H_quad(x) + H_NN(x)         # H_quad is the fixed LC quadratic
+R(x)  = R_phys + R_NN(x)            # R_NN parameterised via Cholesky (PSD)
+G     = [[1, 0], [0, -1]]            # fixed from physics
+u     = [v_sw, i_o]                  # v_sw = V_in on-time, 0 off-time
+```
+
+`R_NN` is state-dependent because switching losses and body diode dead-time conduction both vary with inductor current. `H_NN` captures energy-storage non-idealities. Both are zero-initialised so training starts from the pure-physics solution.
+
+### Dataset
+
+`data/plecs_switched_train.npz` — 60 trajectories, each 2–5 ms at 1 MHz (10 samples per switching cycle). R_load restricted to 2–5 Ω (CCM). Contains `v_sw` field in addition to the standard averaged schema.
+
+### Training Hyperparameters
+
+| Parameter | Value | Rationale |
+|-----------|-------|-----------|
+| dt | 1 µs | 1 MHz grid — resolves ripple |
+| Rollout window | 100 steps = 100 µs = 10 cycles | Sees full ripple + LC dynamics |
+| Window stride | 50 steps (50% overlap) | Dense coverage without duplication |
+| Batch size | 256 windows | Mini-batch avoids OOM at 50× more samples |
+| Grad clip | 1.0 | Stabilises training with discontinuous v_sw |
+| LR | 5e-4 | Lower than averaged (noisier data) |
+| Epochs | 5000 | With early stopping patience 500 |
+
+### Acceptance Criteria
+
+1. Training converges without numerical instability.
+2. Steady-state ripple peak-to-peak within 10% of PLECS.
+3. On an alpha step transient, `SwitchedBuckPHNN` has lower RMSE than the analytical averaged model during the first 1 ms (must hold for ≥ 2 of 3 test scenarios).
+4. Model is passive by construction (R PSD, H bounded below).
+
+### Known Risks
+
+- **Memory blowup**: 100-step BPTT at 1 MHz. Mini-batching (256 windows) mitigates this. If OOM, reduce to 50 steps.
+- **Training instability from v_sw**: Square-wave input is non-smooth. Gradient clipping (norm 1.0) is applied. If instability persists, try sigmoid-smoothed v_sw.
+- **Model collapses to averaged solution**: If H_NN and R_NN stay near zero, the multi-step loss was too forgiving. Fall back to a single-step loss that forces ripple prediction.
+- **Slow training**: 50× more data than averaged case. Expect 10+ min/epoch without GPU.
+
+### Results
+
+*(To be filled in after training and evaluation runs.)*
+
+---
+
 Problem: DCM Caused by Synchronous Rectification at Light Loads
 During PLECS dataset generation, a persistent and physically impossible violation was observed: the cycle-averaged capacitor voltage V_C_ss exceeded α·V_in at steady state across 35 of 88 trajectories, with violations as large as 2.5V. This was confirmed not to be a Python averaging artifact — raw PLECS output for a representative trajectory (α=0.75, V_in=10.37V) showed V_C = 8.83V at steady state against a maximum possible value of α·V_in = 7.78V, and the inductor current range was [-5.5A, +8.5A], confirming sustained negative current flow.
 The root cause was discontinuous conduction mode (DCM) with bidirectional inductor current, enabled by the synchronous buck topology (two MOSFETs, no freewheeling diode). At light loads, the inductor current naturally reverses during the off-period. Unlike a conventional asymmetric buck with a body diode, the synchronous converter allows this reverse current to flow through the low-side MOSFET, creating a resonant energy exchange between L and C that pumps V_C above α·V_in. This violates the fundamental CCM assumption of the averaged Port-Hamiltonian model (V_C_ss = α·V_in − R_L·i_L), making the data inconsistent with any parameterization of the model.
 Solution: Restrict R_load to Enforce CCM
 The fix was to restrict the load resistance range to ensure continuous conduction mode across all operating points. The CCM boundary condition requires i_L_avg > ΔiL/2, where ΔiL = V_in·(1−α)/(L·f_sw) is the peak-to-peak ripple. For the worst-case operating point in the dataset (α=0.2, V_in=10V), this gives R_load_max ≈ 5Ω. The Rload_range was changed from (5.0, 20.0)Ω to (2.0, 5.0)Ω, ensuring all trajectories remain in CCM. A DCM warning check was also added to the generator to flag any trajectory where more than 5% of i_L samples are negative. After this change, training loss dropped from a stuck plateau of ~0.12 to below 5×10⁻³ within 300 epochs — confirming the data is now consistent with the averaged model.
+
+---
+
+## Step 9 — DCM Extension Attempt
+
+**Status:** Code ready. Dataset generation and training pending (requires PLECS + GPU).
+
+### Motivation
+
+The CCM PHNN (archived in `averaged_ccm_buck_model/`) works well for R_load ∈ [2, 5] Ω
+but degrades when pushed into light-load / reverse-current operation. Rather than shipping
+a model that silently fails at light loads, this step tries to extend the averaged PHNN to
+cover the full R_load range in a single model.
+
+### Branch Location
+
+All DCM extension code lives in `dcm_buck_model/`. It is fully independent of the CCM
+archive — no cross-folder imports during training.
+
+| Folder | Purpose |
+|--------|---------|
+| `averaged_ccm_buck_model/` | Locked CCM archive — do not modify |
+| `dcm_buck_model/` | Exploratory DCM extension |
+
+### Hypothesis
+
+Three model extensions give DCMBuckPHNN capacity to handle regime-dependent behaviour:
+
+1. **State-dependent dissipation R_theta(x)**: A 2×2 PSD matrix parameterised by a
+   Cholesky MLP `(2→64→64→3)` whose output gives the Cholesky factor of R. Forward and
+   reverse conduction losses are fundamentally different; fixed scalars cannot capture this.
+
+2. **Richer H_NN** `(4→64→64→64→1)`: The effective energy storage shifts as the converter
+   spends time in reverse-current conduction. More capacity lets H_NN absorb non-quadratic
+   corrections across the full operating range.
+
+3. **State-dependent input coupling delta_G(x)** `(2→128→128→128→2, diagonal)`: The plant
+   gain ∂V_C/∂α can be non-monotone in DCM. A diagonal correction lets the model adapt.
+
+All output layers are zero-initialised so training starts from the pure-physics solution.
+
+### Training Configuration
+
+| Parameter | Value | Rationale |
+|-----------|-------|-----------|
+| LR | 5e-4 | Gentler than CCM (5× richer dynamics) |
+| MULTISTEP_N | 60 | 3 ms rollout — captures full reverse-current LC ringing |
+| EPOCHS | 12000 | More epochs due to harder optimisation landscape |
+| Early stopping patience | 1500 | Wider window than CCM |
+| DCM loss weight | 2× | Compensates for smaller signal magnitudes at light load |
+| Dataset | 120 train + 20 test trajectories, R_load ∈ [2, 50] Ω |
+
+### What Success Looks Like
+
+1. DCM RMSE ≤ 3× CCM RMSE on held-out test set (`tests/evaluate_dcm.py`)
+2. H_NN and delta_G norms grow meaningfully larger in DCM windows than CCM windows
+   (the neural components are learning regime-specific corrections, not fitting noise)
+3. DCM-trained model outperforms CCM-trained model on light-load trajectories
+
+### Risk
+
+The CCM/DCM transition is triggered by i_L crossing zero — a sharp nonlinearity that
+smooth neural corrections may not be able to represent. If the experiment fails, the
+valid conclusion is that separate models per regime (or a hybrid automaton approach)
+are needed. Failure is a publishable finding.

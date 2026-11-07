@@ -1,6 +1,7 @@
 """
 Train SimulationBuckPHNN on PLECS data in physical coordinates.
 
+MOST ADVANCED
 L and C are fixed (known from design). The model learns effective resistances
 R_L and R_C plus a state-dependent delta_G network that captures switching
 losses, diode drops, dead-time, and other nonlinear effects missed by the
@@ -31,7 +32,8 @@ from phnn import SimulationBuckPHNN
 
 ROOT = Path(__file__).resolve().parent.parent
 
-DATA_PATH = ROOT / "data" / "plecs_physical_train.npz"
+#DATA_PATH = ROOT / "data" / "plecs_physical_train.npz"
+DATA_PATH = ROOT / "data" / "fullPlecsDataset" / "buckdata1.npz"
 if not DATA_PATH.exists():
     DATA_PATH = ROOT / "data" / "plecs_train.npz"
 
@@ -39,9 +41,9 @@ MODEL_PATH = ROOT / "models" / "sim_buck_phnn.pt"
 LOSS_PLOT_PATH = ROOT / "tests" / "sim_buck_phnn_loss.png"
 TRAJ_PLOT_PATH = ROOT / "tests" / "sim_buck_phnn_trajectories.png"
 
-# Fixed — known from design
+# Fixed — known from design2
 L_TRUE = 100e-6
-C_TRUE = 100e-6
+C_TRUE = 220e-6
 
 # Learned resistance initial guesses
 INIT_R_L = 0.20

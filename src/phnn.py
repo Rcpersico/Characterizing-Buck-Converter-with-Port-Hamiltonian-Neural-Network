@@ -838,3 +838,156 @@ class SimulationBuckPHNN(nn.Module):
                 "delta_G_norm": 0.0,
                 "H_NN_norm": H_NN_norm,
             }
+
+
+class SwitchedBuckPHNN(nn.Module):
+    """Port-Hamiltonian buck converter model for raw switched data.
+
+    Learns switched dynamics directly without cycle-averaging.
+    Input u_eff is [v_sw, i_o], where v_sw is the instantaneous switch state.
+    """
+
+    def __init__(
+        self,
+        L: float = 100e-6,
+        C: float = 100e-6,
+        initial_R_L: float = 0.15,
+        initial_R_C: float = 0.05,
+        r_epsilon: float = 1e-6,
+    ) -> None:
+        super().__init__()
+        self.register_buffer("L", torch.tensor(L, dtype=torch.float32))
+        self.register_buffer("C", torch.tensor(C, dtype=torch.float32))
+        self.r_epsilon = float(r_epsilon)
+
+        self.log_R_L = nn.Parameter(
+            torch.tensor(float(np.log(max(initial_R_L, r_epsilon))), dtype=torch.float32)
+        )
+        self.log_R_C = nn.Parameter(
+            torch.tensor(float(np.log(max(initial_R_C, r_epsilon))), dtype=torch.float32)
+        )
+
+        self.register_buffer(
+            "J",
+            torch.tensor([[0.0, -1.0], [1.0, 0.0]], dtype=torch.float32),
+        )
+        self.register_buffer(
+            "G_physics",
+            torch.tensor([[1.0, 0.0], [0.0, -1.0]], dtype=torch.float32),
+        )
+
+        self.register_buffer("I_typical", torch.tensor(5.0, dtype=torch.float32))
+        self.register_buffer("V_typical", torch.tensor(12.0, dtype=torch.float32))
+
+        # Learned Hamiltonian correction H_NN(i_L_norm, V_C_norm)
+        self.H_NN = nn.Sequential(
+            nn.Linear(2, 32),
+            nn.Tanh(),
+            nn.Linear(32, 32),
+            nn.Tanh(),
+            nn.Linear(32, 1),
+        )
+        nn.init.zeros_(self.H_NN[-1].weight)
+        nn.init.zeros_(self.H_NN[-1].bias)
+
+        # Learned state-dependent dissipation R_NN(i_L_norm, V_C_norm) -> L_R (3 elements)
+        self.R_NN = nn.Sequential(
+            nn.Linear(2, 32),
+            nn.Tanh(),
+            nn.Linear(32, 3),
+        )
+        nn.init.zeros_(self.R_NN[-1].weight)
+        nn.init.zeros_(self.R_NN[-1].bias)
+
+    def _get_normalized_states(self, x_req: torch.Tensor) -> torch.Tensor:
+        L = self.L.to(device=x_req.device, dtype=x_req.dtype)
+        C = self.C.to(device=x_req.device, dtype=x_req.dtype)
+        I_typ = self.I_typical.to(device=x_req.device, dtype=x_req.dtype)
+        V_typ = self.V_typical.to(device=x_req.device, dtype=x_req.dtype)
+        i_L_norm = x_req[..., 0:1] / (L * I_typ)
+        V_C_norm = x_req[..., 1:2] / (C * V_typ)
+        return torch.cat([i_L_norm, V_C_norm], dim=-1)
+
+    def _h_nn(self, x_norm: torch.Tensor) -> torch.Tensor:
+        return self.H_NN(x_norm)
+
+    def _r_nn_matrix(self, x_norm: torch.Tensor) -> torch.Tensor:
+        l_r_elems = self.R_NN(x_norm) # [..., 3]
+        # Build lower triangular matrix L_R
+        batch_shape = l_r_elems.shape[:-1]
+        L_R = torch.zeros(*batch_shape, 2, 2, device=x_norm.device, dtype=x_norm.dtype)
+        L_R[..., 0, 0] = l_r_elems[..., 0]
+        L_R[..., 1, 0] = l_r_elems[..., 1]
+        L_R[..., 1, 1] = l_r_elems[..., 2]
+        
+        # R_NN = L_R @ L_R^T
+        R_NN = L_R @ L_R.transpose(-1, -2)
+        return R_NN
+
+    def forward(
+        self,
+        x_phys: torch.Tensor,
+        u_eff: torch.Tensor,
+        create_graph: bool = True,
+    ) -> torch.Tensor:
+        L = self.L.to(device=x_phys.device, dtype=x_phys.dtype)
+        C = self.C.to(device=x_phys.device, dtype=x_phys.dtype)
+        R_L = torch.exp(self.log_R_L).to(device=x_phys.device, dtype=x_phys.dtype)
+        R_C = torch.exp(self.log_R_C).to(device=x_phys.device, dtype=x_phys.dtype)
+
+        i_L = x_phys[..., 0]
+        V_C = x_phys[..., 1]
+        Phi = L * i_L
+        q = C * V_C
+        x_ph = torch.stack([Phi, q], dim=-1)
+        u = u_eff.to(device=x_phys.device, dtype=x_phys.dtype)
+
+        with torch.enable_grad():
+            x_req = x_ph if x_ph.requires_grad else x_ph.detach().clone().requires_grad_(True)
+            
+            x_norm = self._get_normalized_states(x_req)
+
+            H_phys = 0.5 / L * x_req[..., 0:1].square() + 0.5 / C * x_req[..., 1:2].square()
+            H_total = H_phys + self._h_nn(x_norm)
+
+            grad_H = torch.autograd.grad(
+                H_total.sum(),
+                x_req,
+                create_graph=create_graph,
+                retain_graph=create_graph,
+            )[0]
+
+            R_phys = torch.diag(torch.stack([R_L + self.r_epsilon, R_C + self.r_epsilon]))
+            R_total = R_phys + self._r_nn_matrix(x_norm)
+            
+            J = self.J.to(device=x_req.device, dtype=x_req.dtype)
+            
+            J_minus_R = J - R_total # [..., 2, 2]
+            auto_part = (J_minus_R @ grad_H.unsqueeze(-1)).squeeze(-1) # [..., 2]
+
+            g_phys = self.G_physics.to(device=x_req.device, dtype=x_req.dtype)
+            input_part = u @ g_phys.T
+            
+            xdot_ph = auto_part + input_part
+
+        di_L_dt = xdot_ph[..., 0] / L
+        dV_C_dt = xdot_ph[..., 1] / C
+        return torch.stack([di_L_dt, dV_C_dt], dim=-1)
+
+    def get_params(self) -> dict:
+        with torch.no_grad():
+            L = float(self.L)
+            C = float(self.C)
+            x_rep = torch.tensor([[L * 1.0, C * 6.0]], dtype=torch.float32, device=self.L.device)
+            x_norm = self._get_normalized_states(x_rep)
+            H_NN_norm = float(self._h_nn(x_norm).abs())
+            R_NN_norm = float(self._r_nn_matrix(x_norm).norm())
+            return {
+                "L": L,
+                "C": C,
+                "R_L": float(torch.exp(self.log_R_L)),
+                "R_C": float(torch.exp(self.log_R_C)),
+                "H_NN_norm": H_NN_norm,
+                "R_NN_norm": R_NN_norm,
+            }
+

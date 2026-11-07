@@ -27,7 +27,8 @@ from simulator import phi_q_to_iL_vC
 
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA_PATH = ROOT / "data" / "plecs_train.npz"
+#DATA_PATH = ROOT / "data" / /  "plecs_train.npz"
+DATA_PATH = ROOT / "data" / "fullPlecsDataset" / "buckdata1.npz"
 RLC_CKPT_PATH = ROOT / "models" / "rlc_phnn.pt"
 MODEL_PATH = ROOT / "models" / "plecs_phnn.pt"
 LOSS_PLOT_PATH = ROOT / "tests" / "plecs_phnn_loss.png"

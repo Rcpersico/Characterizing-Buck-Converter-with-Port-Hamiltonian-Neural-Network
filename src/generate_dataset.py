@@ -255,7 +255,7 @@ def save_dataset(trajectories: list[dict], path: str | Path) -> None:
     profile_types_list: list[str] = []
 
     required_keys = ("t", "Phi", "q", "i_L", "V_C", "alpha", "V_in", "i_o")
-    optional_keys = ("dPhi_dt", "dq_dt")
+    optional_keys = ("dPhi_dt", "dq_dt", "v_sw", "V_terminal")
     _array_keys = required_keys + tuple(
         key for key in optional_keys if all(key in traj for traj in trajectories)
     )
